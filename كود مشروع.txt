@@ -1,0 +1,275 @@
+#include "RTClib.h"
+
+#include <Keypad.h>
+#include "7-seg.h"
+
+RTC_DS1307 rtc;
+
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+
+////////////////Task States ///////////////////////////
+
+#define LED 0
+#define PushButton  1
+#define Buzzer 2
+#define RTC  3
+#define End 4
+#define keypad 5
+#define 7-seg 6
+#define hc595 7
+
+
+const uint8_t ROWS = 12;
+const uint8_t COLS = 11;
+
+
+
+
+
+///////////////////////////////////////////////////////
+
+
+
+/////////////////////////////////////General Variables////////////////
+char Task = 0; 
+unsigned long currentMillis = millis();  /// tick timer 
+////////////////////////////////////////////////////////////
+
+///////////////////LED Task Global veriables////////
+
+// Variables will change:
+int ledState = LOW;  // ledState used to set the LED
+////////////////////////////////////////////////////
+
+
+///////////////Task timer veriables/////////////////
+unsigned long LED_previousMillis = 0;  // will store last time LED was updated
+const long LED_Timer = 500;  // interval at which to blink (milliseconds)
+
+unsigned long RTC_previousMillis = 0;  // will store last time LED was updated
+const long RTC_Timer = 3000;  // interval at which to blink (milliseconds)
+////////////////////////////////////////////////////////////
+
+////////////Task counter ////////////////////////
+unsigned  long  LED_counter =0;
+///////////////////////////////////////
+
+
+char keys[ROWS][COLS] = {
+  { '1', '2', '3', 'A' },
+  { '4', '5', '6', 'B' },
+  { '7', '8', '9', 'C' },
+  { '*', '0', '#', 'D' }
+};
+
+uint8_t colPins[COLS] = { 5, 4, 3, 2 }; // Pins connected to C1, C2, C3, C4
+uint8_t rowPins[ROWS] = { 9, 8, 7, 6 }; // Pins connected to R1, R2, R3, R4
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+
+
+///////////////Function Prototypes/////////////////////
+void Red_LED_Task ();
+void Push_Button_Task ();
+void Buzzer_Task ();
+void RTC_Task ();
+void keypad_Task ();
+void 7-seg_Task ();
+////////////////////////////////////////////////////////////
+
+
+void setup() {
+///////////////////////////RTC
+Serial.begin(115200);
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    abort();
+  }
+
+///////////////////////////////////////////////////////
+  pinMode(7, INPUT);
+  pinMode(8, OUTPUT);
+  pinMode(6, OUTPUT);
+  pinMode(9, OUTPUT);
+
+
+  Serial.begin(9600);
+
+
+}
+
+
+void loop() {
+  
+  currentMillis = millis();
+
+
+  switch(Task){
+    case LED :
+    
+     Red_LED_Task();
+
+     Task = PushButton ;
+    break;
+
+    case PushButton:
+     Push_Button_Task ();
+  
+    Task = Buzzer ;
+    break;
+
+    case Buzzer:
+    Buzzer_Task ();
+    
+    Task = RTC;
+    break;
+
+  case RTC:
+    RTC_Task ();
+    
+    Task = End;
+    break;
+
+     case keypad:
+     keypad_Task ();
+    
+    case 7-seg:
+    7-seg_Task();
+    
+    case hc595:
+    hc595_Task();
+    
+    
+    default:
+  
+    Task = LED;
+    break;
+
+case keypad:
+keypad_Task ();
+
+
+  }
+
+  
+}
+
+
+void Red_LED_Task(){
+
+if (currentMillis - LED_previousMillis >= LED_Timer) {
+    // save the last time you blinked the LED
+    LED_previousMillis = currentMillis; 
+  if (ledState == LOW) {
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+    // set the LED with the ledState of the variable:
+    digitalWrite(8, ledState);
+    }
+  
+}
+
+void Push_Button_Task (){
+
+if(digitalRead(7)){
+   digitalWrite(9, HIGH);
+
+}
+else{
+ digitalWrite(9, LOW);
+
+}
+
+}
+
+
+
+
+void Buzzer_Task (){
+
+
+tone(6, 262, 10); // Plays 262Hz tone for 0.250 seconds
+
+
+}
+
+void RTC_Task (){
+
+if (currentMillis - RTC_previousMillis >= RTC_Timer) {
+    // save the last time you blinked the LED
+    RTC_previousMillis = currentMillis; 
+
+DateTime now = rtc.now();
+
+  Serial.print("Current time: ");
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(" (");
+  Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  Serial.print(") ");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println();
+
+
+  Serial.println();
+
+}
+
+
+  void keypad_Task(){
+
+  char key = keypad.getKey();
+
+  if (key != NO_KEY) {
+    Serial.println(key);
+
+
+
+}
+
+
+void setup()
+{
+	//Set to 1 for single digit display
+	byte numDigits = 1;
+
+	//defines common pins while using multi-digit display. Left empty as we have a single digit display
+	byte digitPins[] = {};
+
+	//Defines arduino pin connections in order: A, B, C, D, E, F, G, DP
+	byte segmentPins[] = {3, 2, 8, 7, 6, 4, 5, 9};
+	bool resistorsOnSegments = true;
+
+	//Initialize sevseg object. Uncomment second line if you use common cathode 7 segment
+	7-seg.begin(COMMON_ANODE, numDigits, digitPins, segmentPins, resistorsOnSegments);
+	//sevseg.begin(COMMON_CATHODE, numDigits, digitPins, segmentPins, resistorsOnSegments);
+
+	7-seg.setBrightness(90);
+}
+
+
+void loop()
+{ 
+   //Display numbers one by one with 2 seconds delay
+   for(int i = 0; i < 10; i++)
+   {
+     7-seg.setNumber(i);
+     7-seg.refreshDisplay(); 
+     delay(2000);
+   }
+
+
+}
